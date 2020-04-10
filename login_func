@@ -1,0 +1,800 @@
+# $DOTFILES/login_func by :nudge>
+
+unset break eval history printf read shift source || exit $?
+
+# return if not interactive
+[[ "$MY_TTYS" != "not a tty" ]] || return 0
+[[  $- = *i*  ||  -n  "$PS1" ]] || return 0
+[[  -z "$VSCODE_PID"         ]] || return 0
+
+# initializes my terminal sessions, checks and reports on the local environment
+my_terminal() {
+  fnckr "my_login" "my_network" "my_system" "show_thy_lan" || return $?
+  my_login "$1" || return $?
+  my_system     || return $?
+  my_network    || return $?
+  show_thy_lan  || return $?
+}
+
+# ensures functions $@ are still defined and otherwise tries to source them
+fnckr() {
+  [[ -n "$red" ]] || { source "${DOTFILES}/login_colors" &>/dev/null || return $? ; }
+  [[ -n "$1"   ]] || { printf "[$red]: $yellow no parameters passed\n" "ERROR" "${FUNCNAME}" ; return 88 ; }
+  declare -F get_function &>/dev/null || {
+    local -r savit=$?
+    printf "[$red]: $green get_function is undefined\n" "ERROR" "$savit"
+    return $savit
+  }
+  local -i value=1
+  while [[ -n "$1" ]]; do
+    declare -F "$1" &>/dev/null || {
+      get_function "$1" || { printf "[$red]: undefined function: $yellow\n" "ERROR" "$1"; return $value ; }
+    }
+    (( value++ )) ; shift
+  done
+}
+
+# sources additional function definitions from $FNPATH or $DOTFILES/functions/
+get_function() {
+  [[ -n "$1" ]] || { printf "[$red]: $yellow no parameter\n" "ERROR" "${FUNCNAME}" ; return 90 ; }
+  local +r srcfile fn_dir
+  if [[ -d "$FNPATH" ]]; then
+    fn_dir="$FNPATH"
+  elif [[ -d "${DOTFILES}/functions" ]]; then
+      fn_dir="${DOTFILES}/functions"
+  else
+    printf "[$red]: unable to locate functions folder $yellow\n" \
+           "ERROR"               "${FNPATH:-DOTFILES/functions}"
+    return 89
+  fi
+  for srcfile in "$1" "func_net" "func_old" "func_store"; do
+    if [[ -r "${fn_dir}/${srcfile}" ]]; then
+      source "${fn_dir}/${srcfile}"
+      declare -F "$1" &>/dev/null && break
+    fi
+  done
+  declare -F "$1" &>/dev/null || return $?
+}
+
+# sets up my prompt, displays my login stuff and displays uptime
+my_login() {
+  fnckr "anyoneshome" "my_system" "display_uptime" "set_prompt" || return $?
+  [[ -z "$SSH_TTY" ]] && set_prompt "$1" || set_prompt 93
+  printf "[$yellow]: $yellow\n" "CPU" "${SYSTYPE:-<toshacking>}"
+  printf "[$cyan]: $rkteer rktnetes rules the $magenta roost $saint\n" "TTY" "${MY_TTYS:-<unset>}"
+  if  anyoneshome  ; then
+    printf "[$cyan]:    o   o   o           o   o   o \n"   "WHO"
+    printf "[$cyan]:    user:     $magenta  is logged in\n" "WHO" "${CONSOLUS:-<unknown>}"
+    printf "[$cyan]:    o   o   o           o   o   o \n"   "WHO"
+  else
+    case ${SYSNAME:-<unset>} in
+      Bad   | Hex  | Max   ) printf "[$cyan]: There aint nobody here but us chickens\n"        "WHO" ;;
+      Kube1 | tdev | tdev2 ) printf "[$cyan]: There aint nobody here at all\n"                 "WHO" ;;
+      Sylma                ) printf "[$cyan]: Stop your fuss, there aint nobody here but us\n" "WHO" ;;
+      *)                     printf "[$magenta]: We seem to be visiting: $red\n" "WHO" "${SYSNAME}"
+                             export PS1="\[\e[0;38m\]\H:\[\e[1;41m\][\W]\[\e[0m:\]\u> "              ;;
+    esac
+  fi
+  display_uptime
+}
+
+# checks system configuration
+my_system() {
+  fnckr "check_space" "check_inputs" "check_launchd" "gatekeeper_enabled" "sip_enabled" \
+        "secure_keyboard_entry" || return $?
+  [[ -n "$SSH_TTY"   ]]   || { secure_keyboard_entry ; check_inputs ; check_launchd ; }
+  gatekeeper_enabled || printf "[$red]: Gatekeeper Protection is $red enabled\n" "GKR" "not"
+  sip_enabled  || printf "[$red]: System Integrity Protection is $red enabled\n" "SIP" "not"
+  check_space
+}
+
+my_network() {
+  fnckr "just_booted" "lan_is_up" "wan_is_up" "whats_myip" || return $?
+  if wan_is_up; then
+    [[ "$MY_TTYS" != "ttys000" ]] && just_booted && /bin/sleep 1.5 # lets ttys000 do the fetching
+    whats_myip  || {
+      local -i savit=$?
+      printf "[$red]: $green whats_myip failed testing: $yellow\n" "ERROR" "$savit" "$MYPUBIP"
+      return $savit
+    }
+  else
+    printf "[$blue]: Currently the internet is $red\n" "WAN" "unavailable"
+    if lan_is_up; then
+      printf "[$magenta]: but the local area network is $green\n" "LAN" "available"
+    else
+      printf "[$magenta]: the local area network is $red\n" "LAN" "unavailable"
+    fi
+  fi
+}
+
+# reports network service names, lan addresses and device names of active network interfaces
+show_thy_lan() {
+  fnckr "display_lan" "get_active_networks" "get_address" "get_service" || return $?
+  local +r devaddr device devserv
+  for device in $(get_active_networks); do
+    if [[ "${device:0:2}" = "en" ]]; then
+      devaddr=$(get_address "$device")
+      devserv=$(get_service "$device")
+      display_lan "${devserv:-<unknown>}" "${devaddr:-<none>}" "${device:-<ERROR>}"
+    else
+      printf "[$red]: function $green returned bad device: $yellow\n" \
+              "ERROR"     "get_active_networks"  "${device:-<ERROR>}"
+    fi
+  done
+}
+
+# returns 0 if the local network is available
+lan_is_up() {
+  fnckr "how_many_nets" || return $?
+  how_many_nets         || return 0
+  return 1
+}
+
+# reports basic internet reachability
+wan_is_up() {
+  fnckr "check_ip_address" "get_random_ip" || return $?
+  local +r someip overthere
+  [[  -n "$1"  ]]  && someip="$1" || someip="$(get_random_ip)"
+  check_ip_address "${someip:-X}" || return $?
+  overthere="$(/usr/sbin/scutil -r "$someip")"
+  if [[ "${overthere:0:9}" = "Reachable" ]]; then
+    printf "[$blue]: The internet ($blue) is $green\n" "WAN" "$someip" "-online-"
+  else
+    printf "[$blue]: The internet ($blue) is $red\n" "WAN" "$someip" "-OFFLINE-"
+    return 1
+  fi
+}
+
+# returns 0 unless no-one else is logged in or this is an ssh session
+anyoneshome() {
+  local +r cus
+  cus="$(/usr/bin/stat -f %Su /dev/console)"
+  [[ "${PIPESTATUS[0]}" -eq 0 && -n "$cus" ]] && export CONSOLUS="$cus"
+  [[ "$CONSOLUS" = "$USER" ]] && return 3
+  [[ "$CONSOLUS" = "root"  ]] && return 2
+  [[ -n "$SSH_CONNECTION"  ]] && return 1
+  return 0
+}
+
+# gets and displays current public IP address
+whats_myip() {
+  fnckr "check_all_dns" "get_public_address" "init_ip" "check_ip_address" "display_wan" || return $?
+  local -i savit fetched=0
+  if ! check_ip_address   ; then    # invoking without params means it checks $MYPUBIP
+    if [[ -s "$PUBADDR" ]]; then
+      MYPUBIP=$(< "$PUBADDR")
+      savit="${PIPESTATUS[0]}"
+      [[ $savit -ne 0 ]] && return "$savit"
+      export MYPUBIP="${MYPUBIP}"
+      check_ip_address   || {
+        init_ip          || return $?
+      }
+    else
+      check_all_dns      || return $?
+      get_public_address || return $?
+      (( fetched++ ))
+    fi
+  fi
+  display_wan "$fetched"
+}
+
+# gets my public ip address
+get_public_address() {
+  fnckr "check_ip_address" "fetch_pubip_address" "write_pubip_file" || return $?
+  fetch_pubip_address
+  if check_ip_address  ; then
+     write_pubip_file || return $?
+  else
+    local -i savit=$?
+    printf "[$red]: $green - $cyan fetched an invalid IP address: $yellow\n" \
+           "ERROR" "$savit" "${FUNCNAME}"                        "$MYPUBIP"
+    export MYPUBIP=""
+    return $savit
+  fi
+}
+
+fetch_pubip_address() {
+  # fast private
+  MYPUBIP="$(/usr/bin/AssetCacheManagerUtil status 2>&1 \
+           | /usr/bin/awk '/PublicAddress =/{gsub("\"","",$NF);sub(";$","",$NF);print $NF}' )"
+  if [[ -z "$MYPUBIP" ]]; then
+    # slow privatish
+    MYPUBIP="$(/usr/bin/AssetCacheLocatorUtil 2>&1 \
+             | /usr/bin/awk '/public IP address is/ {sub(".$","",$NF); print $NF}')"
+  fi
+  if [[ -z "$MYPUBIP" ]]; then
+    # medium noisy
+    local -r supplier='https://ipinfo.io/ip'
+    if  [[  -x  "/usr/local/opt/curl/bin/curl" ]]; then
+      MYPUBIP="$(/usr/local/opt/curl/bin/curl --connect-timeout 3 --http2 --max-time 4 --silent ${supplier} )"
+    else
+      MYPUBIP="$(/usr/bin/curl                --connect-timeout 3 --http2 --max-time 4 --silent ${supplier} )"
+    fi
+  fi
+  if [[ -z "$MYPUBIP" ]]; then
+    # fast noisy
+    MYPUBIP="$(/usr/bin/dig @resolver1.opendns.com +short +time=1 +tries=1 -4 myip.opendns.com )"
+    local -i savit=${PIPESTATUS[0]}
+    [[ $savit -eq 0 ]] || {
+      printf "[$red]: $green unable to fetch pubip from AssetCache, curl or dig\n" "ERROR" "$savit"
+      return "$savit"
+    }
+  fi
+  export MYPUBIP="${MYPUBIP}"
+}
+
+# returns 0 if $1 (or $MYPUBIP) resembles a valid IP address
+check_ip_address() {
+  local -i addrsl alphal digitl dotnum firstc lastch
+  local +r astr
+  [[ -n "$1"    ]]          && astr="$1"
+  [[ -z "$astr"  ]]         && astr="$MYPUBIP"
+  [[ -z "$astr"   ]]        && return 99
+  [[ "$1" = "empty" ]]      && return 0
+  /usr/bin/grep -Fc ':'   <<< "$astr" &>/dev/null && {
+    fnckr "check_ipv6_addr" || return $?
+    check_ipv6_addr "$astr"
+    return $?
+  }
+  [[ $(/usr/bin/tr -dc '0-9\.'   <<< "$astr" ) != "$astr" ]] && return 98
+  firstc=$(/usr/bin/grep -o '\.' <<< "${astr:0:1}" | /usr/bin/wc -c )
+  lastch=$(/usr/bin/grep -o '\.' <<< "${astr: -1}" | /usr/bin/wc -c )
+  dotnum=$(/usr/bin/grep -o '\.' <<< "$astr"       | /usr/bin/wc -w )
+  addrsl=$(/usr/bin/wc   -c      <<< "$astr"                        )
+  digitl=$(/usr/bin/grep '[[:digit:]]' <<< "$astr" | /usr/bin/wc -c )
+  alphal=$(/usr/bin/grep '[[:alpha:]]' <<< "$astr" | /usr/bin/wc -c )
+  [[ $alphal -ne 0 ]]       && return 97
+  [[ $dotnum -ne 3  ]]      && return 96
+  [[ $addrsl -lt 8   ]]     && return 95
+  [[ $addrsl -gt 16   ]]    && return 94
+  [[ $firstc -ne 0     ]]   && return 93
+  [[ $lastch -ne 0      ]]  && return 92
+  [[ $addrsl -ne $digitl ]] && return 91
+  local +r anum apart bnum cnum dnum
+  local -i fails=0
+  anum=$(/usr/bin/awk -F. '{ print $1}' <<< "$astr" )
+  bnum=$(/usr/bin/awk -F. '{ print $2}' <<< "$astr" )
+  cnum=$(/usr/bin/awk -F. '{ print $3}' <<< "$astr" )
+  dnum=$(/usr/bin/awk -F. '{ print $4}' <<< "$astr" )
+  for apart in "$anum" "$bnum" "$cnum" "$dnum"; do
+    [[ "$apart"       -ge 0 && "$apart" -lt 255  ]] || (( fails++ ))
+    [[ "${apart:0:1}" -eq 0 && "${#apart}" -gt 1 ]] && (( fails++ ))
+  done
+  [[ $fails -ge 1 ]]        && return 90
+  return 0
+}
+
+# work in progress...
+check_ipv6_addr() {
+  [[ -n "$1" ]] || { printf "[$red]: $yellow no parameter received\n" "${FUNCNAME}" "ERROR" ; return 9 ; }
+  local +r astr
+  astr="$(/usr/bin/tr '/[[:upper:]]/' '/[[:lower:]]/' <<< "$1" )"
+  [[ $(/usr/bin/tr -dc '/[[:xdigit:]]/:' <<< "$1" ) != "$astr" ]] && {
+    printf "[$red]: not a valid IPv6 address: $yellow\n"  "ERROR" "$astr" ; return 87 ; }
+  printf "$magenta $yellow\n" "TODO:" "IPv6"
+}
+
+# re-initializes the $PUBADDR file (if it's writeable)
+init_ip() {
+  if [[ -w "$PUBADDR" ]]; then
+    /bin/rm -f "$PUBADDR" && ( umask 0077 ; /usr/bin/touch "$PUBADDR" )
+    return $?
+  else
+    return 91
+  fi
+}
+
+# writes $MYPUBIP to the $PUBADDR file (if it's writeable)
+write_pubip_file() {
+  [[ -z "$MYPUBIP" ]] && { printf "[$red]: empty variable MYPUBIP\n" "ERROR" ; return 86 ; }
+  [[ -w "$PUBADDR" ]] || {
+    if [[ -e "$PUBADDR" ]]; then
+      printf "[$red]: file not writable: $green\n" "ERROR" "$PUBADDR"
+      return 95
+    else
+      fnckr "init_ip" || return $?
+      init_ip         || return $?
+    fi
+  }
+  (
+    local -i savit=0
+    umask 0077
+    /bin/echo "$MYPUBIP" > "$PUBADDR" || {
+      savit=$?
+      printf "[$red]: $magenta writing: $green to $yellow\n" \
+             "ERROR" "$savit"         "$MYPUBIP" "$PUBADDR"
+      return $savit
+    }
+  )
+}
+
+# returns the first en* device of type Wi-Fi found
+get_wifi() {
+  fnckr "get_type" || return $?
+  local +r device
+  for device in $(/sbin/ifconfig -lu); do
+    if [[ "${device:0:2}" = "en"  ]] ; then
+      if [[ "$(get_type "$device")" = "Wi-Fi" ]]; then
+        printf "%s\n" "$device"
+        return 0
+      fi
+    fi
+  done
+  printf "[$red]: no devices of type Wi-Fi available\n" "ERROR"
+  return 9
+}
+
+# toggles Wi-Fi power
+wifsw() {
+  fnckr "get_type" "get_wifi"  || return $?
+  [[ -n "$WIFID" ]] || WIFID="$(get_wifi)" || return $?
+  if [[ "$(get_type "$WIFID")" = "Wi-Fi" ]] ; then
+    local +r wfpower
+    wfpower=$(/usr/sbin/networksetup -getairportpower "$WIFID"       \
+            | /usr/bin/awk -F: '{sub("[[:space:]]*","",$2);print $2}' )
+    case $wfpower in
+      Off ) /usr/sbin/networksetup -setairportpower "$WIFID"  On ;;
+      On  ) /usr/sbin/networksetup -setairportpower "$WIFID" Off ;;
+      *   ) printf "[$red]: unknown state $green on $yellow\n" "ERROR" "$wfpower" "$WIFID"
+            return 8 ;;
+    esac
+  fi
+}
+
+# displays a multicolor padded string of local area network info
+display_lan() {
+  [[ "$#" -ge 3 ]] || { printf "[$red]: $yellow requires 3 parameters\n" "ERROR" "${FUNCNAME}" ; return 3 ; }
+  local -r padgrn="\e[1;32m%-15s\e[0m" padylo="\e[1;33m%-19s\e[0m" padmgt="\e[1;35m%-5s\e[0m"
+  printf "[$magenta]: $padylo  address: $padgrn Device: $padmgt\n" \
+           "LAN"     "$1"              "$2"            "$3"
+}
+
+# displays a multicolor padded string of wide area network info
+display_wan() {
+  [[ "$#" -ge 1  ]] || {
+    printf "[$red]: parameters not supplied to $yellow\n" "ERROR" "${FUNCNAME}"
+    return 9
+  }
+  fnckr "get_route" || return $?
+  local -r padgrn="\e[1;32m%-15s\e[0m" padmgt="\e[1;35m%4s\e[0m"
+  local +r routedv
+  routedv="$(get_route)"
+  case $1 in
+    0 ) printf "[$blue]: Current public IP address is: $padgrn Route: $padmgt\n" \
+                 "WAN"                 "${MYPUBIP:-<unknown>}" "${routedv:-XXX}" ;;
+    1 ) printf "[$blue]: $cyan public IP address is: $padgrn Route: $padmgt\n"   \
+                 "WAN"  "Fetched"      "${MYPUBIP:-<unknown>}" "${routedv:-XXX}" ;;
+    *)  printf "[$blue]: strangely my IP address is: $padgrn Route: $padmgt\n"   \
+                 "WAN"                 "${MYPUBIP:-<unknown>}" "${routedv:-XXX}" ;;
+  esac
+}
+
+# ensures network service name $1 uses the $LDNS dns server(s)
+check_dns() {
+  [[ -n "$1"    ]] || { printf "[$red]: $yellow no parameter\n" "ERROR" "${FUNCNAME}" ; return 85 ; }
+  [[ -n "$LDNS" ]] || local -r LDNS="empty"
+  local -i chngs=0 savit=0
+  local -i numcurrdns numdesired
+  local +r currentdns netsrv rdns
+  netsrv="$1"
+  currentdns="$(/usr/sbin/networksetup -getdnsservers "$netsrv" )"
+  savit=$?
+  [[ "$savit" -eq 4 ]] && {
+    printf "[$red]: $green unrecognized network service $yellow\n" "ERROR" "$savit" "$netsrv"
+  }
+  [[ "$savit" -ge 1 ]] && return $savit
+  currentdns="$(/usr/bin/tr '\n' ' ' <<< "$currentdns" )"
+  numcurrdns="$(/usr/bin/wc -w     <<<   "$currentdns" )"
+  numdesired="$(/usr/bin/wc -w  <<<      "$LDNS"       )"
+  if [[ $numcurrdns -ne $numdesired ]]; then
+    (( chngs++ ))
+  else
+    for rdns in $LDNS; do
+      /usr/bin/grep -Fc "$rdns" <<< "$currentdns" &>/dev/null || (( chngs++ ))
+    done
+  fi
+  if [[ $chngs -ge 1 ]]; then
+    fnckr "check_ip_address"   || return $?
+    for rdns in $LDNS; do
+      check_ip_address "$rdns" || {
+        savit=$?
+        printf "[$red]: $green check_ip_address failure for $yellow\n" "ERROR" "$savit" "$rdns"
+        return "$savit"
+      }
+    done
+    eval /usr/sbin/networksetup -setdnsservers \""$netsrv"\" "$LDNS"
+    savit=$?
+    if [[ $savit -eq 0 ]]; then
+      printf "[$yellow]: changed to use: $red on: $green\n" "DNS" "$LDNS" "$netsrv"
+    else
+      printf "[$red]: failure updating $green to use dns server: $red\n" "ERROR" "$netsrv" "$LDNS"
+    fi
+  fi
+  return $savit
+}
+
+# ensures that all enabled network services are using the correct dns server(s)
+check_all_dns() {
+  fnckr "check_dns" || return $?
+  local -i savit
+  local +r netsvc
+  while read -r -e netsvc; do
+    check_dns "$netsvc" || {
+      savit=$?
+      printf "[$red]: $green $yellow failure\n" "ERROR" "$savit" "${FUNCNAME}"
+      return $savit
+    }
+  done <<< "$(/usr/sbin/networksetup -listallnetworkservices \
+            | /usr/bin/sed -e '/^An asterisk/d' -e '/^*/d'    )"
+}
+
+# returns how many active network interfaces are available
+how_many_nets() {
+  fnckr "get_active_networks" || return $?
+  local -i counter=0
+  local +r activenets device
+  activenets=$(get_active_networks)
+  for device in $activenets ; do
+    [[ -n "$device" ]] && (( counter++ ))
+  done
+  return "$counter"
+}
+
+# gets active network device names from scutil
+get_active_networks() {
+  local +a acnets
+  read -r -d '' -a acnets <<< "$(/usr/sbin/scutil --nwi | /usr/bin/awk -F: \
+                              '$1 ~ /^Network interfaces/ {sub("[[:space:]]*","",$2);print $2}' )"
+  printf "%s\n" "${acnets[@]}"
+}
+
+# gets network interface addresses from scutil
+get_active_ifaddrs() {
+  local -a actads
+  local +r myaddr
+  read -r -d '' -a actads <<< "$(/usr/sbin/scutil --nwi | /usr/bin/awk -F:         \
+                              '$1 ~ /address/ {sub("[[:space:]]*","",$2);print $2}' )"
+  for myaddr in "${actads[@]}" ; do
+    check_ip_address "${myaddr:-X}" && printf "%s\n" "$myaddr"
+  done
+}
+
+# gets active en* network device names from ifconfig flags
+get_active_devices() {
+  local +r device
+  local +a actdvs
+  read -r -d '' -a actdvs <<< "$(/sbin/ifconfig | /usr/bin/awk -F: \
+                              '$2 ~ /^ flags=8863<UP/ { print $1}'  )"
+  for device in "${actdvs[@]}" ; do
+    if [[ "${device:0:2}" = "en" ]]; then
+      printf "%s\n" "$device"
+    fi
+  done
+}
+
+# gets the type of device $1 from ifconfig
+get_type() {
+  [[ -n "$1" ]] || { printf "[$red]: $yellow requires a device parameter\n" "ERROR" "${FUNCNAME}" ; return 9 ; }
+  local +r devtype
+  devtype="$(/sbin/ifconfig -v "$1" 2>/dev/null | /usr/bin/awk '$1 ~ /^type:$/ {print $NF}' )"
+  [[ -n "$devtype" ]] || return 10
+  printf "%s\n" "$devtype"
+}
+
+# gets a device's lan address from ifconfig
+get_address() {
+  [[ -n "$1" ]] || { printf "[$red]: $yellow requires a device parameter\n" "ERROR" "${FUNCNAME}" ; return 9 ; }
+  local +r devaddr
+  devaddr="$(/sbin/ifconfig -v "$1" 2>/dev/null | /usr/bin/awk '/^[[:space:]]inet / {print $2}' )"
+  [[ -z "$devaddr" ]]         && return 10
+  fnckr "check_ip_address"    || return $?
+  check_ip_address "$devaddr" || return $?
+  printf "%s\n" "$devaddr"
+}
+
+# gets a random ip address from an array
+get_random_ip() {
+  local -a barry=(8.8.4.4 8.8.8.8 66.111.4.139 66.111.4.140 77.207.215.1 109.0.66.20 140.82.118.4 \
+                  17.142.160.59 17.178.96.59 17.172.224.47 89.233.43.71 109.0.66.10 217.70.185.65  \
+                  140.82.118.4 146.185.167.43 162.159.24.178 162.159.25.191 185.49.141.37 1.1.1.1   \
+                  185.199.110.153 185.199.111.153 104.16.176.44 104.17.14.48 217.70.184.38 9.9.9.9   )
+  printf "%s\n" "${barry[$RANDOM % ${#barry[@]}]}"
+}
+
+# reports the interface device name or gateway address for internet routing
+get_route() {
+  fnckr "get_random_ip" "check_ip_address" || return $?
+  local +r addr dv rip
+  [[ -z "$1" ]]  && addr="interface" || addr="gateway"
+  rip=$(get_random_ip)
+  check_ip_address "${rip:-X}" || return $?
+  dv=$(/sbin/route -n get "$rip" 2>/dev/null | /usr/bin/awk -v str=$addr -F: \
+                      '{sub("[[:space:]]*","",$1);sub("[[:space:]]*","",$2);  \
+                                                  if ($1 == str)  print $2}'   )
+  [[ -n "$dv" ]] || return 10
+  printf "%s\n" "$dv"
+}
+
+# gets network service name for device $1 using networksetup
+get_service() {
+  [[ -n "$1" ]] || { printf "[$red]: $yellow no parameter\n" "ERROR" "${FUNCNAME}" ; return 84 ; }
+  local +r netserv
+  netserv="$(/usr/sbin/networksetup -listallhardwareports | /usr/bin/awk -v dev="$1" -F: \
+                          '{RS=""} /Ethernet Address/ {gsub(" ","",$4); sub("^ ","",$2);  \
+                                                      if ($4 == dev) printf("%s\n",$2)}'   )"
+  [[ -n "$netserv" ]] || return 69
+  /usr/sbin/networksetup -getnetworkserviceenabled "$netserv" &>/dev/null || return $?
+  printf "%s\n" "$netserv"
+}
+
+# displays the network service order with device names and any local IP addresses
+get_order() {
+  fnckr "get_address" "get_service" || return $?
+  local +r address device service
+  local -r padgrn="\e[1;32m%-15s\e[0m"
+  local -r padylo="\e[1;33m%-28s\e[0m"
+  local -r padmgt="\e[1;35m%-9s\e[0m"
+  while read -r device; do
+    service="$(get_service "$device" )"
+    [[ "${PIPESTATUS[0]}" -eq 0 && -n "$service" ]] && {
+      address="$(get_address "$device" )"
+      printf "${padylo}${padmgt}${padgrn}\n" "$service" "$device" "${address:-   .   . . }"
+    }
+  done <<< "$(/usr/sbin/networksetup -listnetworkserviceorder               \
+            | /usr/bin/awk '$1 ~ /\(Hardware/ {sub("\\)","",$NF);print $NF}' )"
+}
+
+# displays the network service order with device names and any local IP addresses
+get_new_order() {
+  fnckr "get_address" "get_service" || return $?
+  local +r address device service
+  local -r padgrn="\e[1;32m%-15s\e[0m" padylo="\e[1;33m%-28s\e[0m" padmgt="\e[1;35m%-9s\e[0m"
+  while read -r service; do
+    device="$(get_device "$service" )"
+    [[ "${PIPESTATUS[0]}" -eq 0 && -n "$device" ]] && {
+      address="$(get_address "$device" )"
+      printf "${padylo}${padmgt}${padgrn}\n" "$service" "$device" "${address:-   .   . . }"
+    }
+  done <<< "$(/usr/sbin/networksetup -listnetworkserviceorder           \
+            | /usr/bin/awk '/^\([[:digit:]]/{$1 ="";sub("^ ","");print}' )"
+}
+
+# gets device name from networksetup for network service name
+get_device() {
+  [[ -n "$1" ]] || { printf "[$red]: $yellow requires a network service parameter\n" "ERROR" "${FUNCNAME}" ; return 80 ; }
+  local +r device
+  device="$(/usr/sbin/networksetup -listnetworkserviceorder \
+          | /usr/bin/awk -v str="$1" '/^\([[:digit:]]/{$1 =""} {if ($0 ~ str) {getline;sub("\\)","",$NF);print $NF}}' )"
+  [[ -n "$device" ]] || return 3
+  printf "%s\n" "$device"
+}
+
+# gets dhcp supplied DNS resolver of device $1 from ipconfig
+get_dhcp_resolver() {
+  [[ -n "$1" ]] || { printf "[$red]: $yellow requires a device parameter\n" "ERROR" "${FUNCNAME}" ; return 84 ; }
+  /usr/sbin/ipconfig getpacket "$1" 2>/dev/null | /usr/bin/awk   \
+    '$1 ~ /domain_name_server/ {sub("{","");sub("}","");print $NF}'
+  [[ "${PIPESTATUS[0]}" -eq 0 ]] || return $?
+}
+
+# displays the amount of time the system has been up
+display_uptime() {
+  local +r beenup
+  beenup="$(/usr/sbin/system_profiler SPSoftwareDataType \
+          | /usr/bin/awk '/Time since boot:/{$1="";$2="";$3="";sub("^ *",""); print}')"
+  printf "[$cyan]: This system was started $yellow ago\n" "RUN" "$beenup"
+}
+
+# returns 0 if gatekeeper is enabled
+gatekeeper_enabled() { /usr/sbin/spctl --status 2>/dev/null | /usr/bin/grep -Eqo 'enabled' ; }
+# returns 0 if system integrity protection (sip) is enabled
+sip_enabled()        { /usr/bin/csrutil  status 2>/dev/null | /usr/bin/grep -Eqo 'enabled' ; }
+# returns 0 if system has been up for less than a minute
+just_booted() { [[ $( /usr/bin/uptime | /usr/bin/grep -Fc "sec" ) -gt 0 ]]  || return 1    ; }
+# sets PS1 terminal prompt
+set_prompt()  { export PS1="\[\e[0;${1:-95}m\]\H:\[\e[1;36m\][\W]\[\e[0m\]${mojie}:\u> "   ; }
+# sources login_colors which adds color variables (etc) to the environment
+my_colors()   { [[ -r "${DOTFILES}/login_colors" ]] && source "${DOTFILES}/login_colors"   ; }
+# sources login_alias which defnies some of our aliases
+my_alias()    { [[ -r "${DOTFILES}/login_alias"  ]] && source "${DOTFILES}/login_alias"    ; }
+
+# runs before logout/reboot/shutdown - see /etc/bashrc_Apple_Terminal
+shell_session_save_user_state() {
+  fnckr "init_ip" || return  $?
+  init_ip         || return  $?
+  unset history   && history -a
+}
+
+# gets network service identifiers from /Lib/Pref/SystemConfiguration/preferences.plist
+get_network_services() {
+  local -r NPREFS="/Library/Preferences/SystemConfiguration/preferences.plist"
+  local -r NETWKSERVICES="/plist/dict/key[contains(text(), 'NetworkServices')]/following-sibling::*[1]/key"
+  /usr/bin/xpath "${NPREFS}" "${NETWKSERVICES}" 2>/dev/null \
+       | /usr/bin/awk '{gsub("<key>","");gsub("</key>"," ");print}'
+}
+
+# gets DNS resolvers for network service $1 from /Lib/Pref/SystemConfiguration/preferences.plist
+get_resolvrs() {
+  [[ -n "$1" ]] || {
+    printf "[$red]: $yellow requires a networkservice parameter\n" "ERROR" "${FUNCNAME}"
+    return 9
+  }
+  local -r NPREFS="/Library/Preferences/SystemConfiguration/preferences.plist"
+  local -r nodep1="/plist/dict//key[text()='${1}']/following-sibling::*[1]"
+  local -r nodep2="/key[text()='DNS']/following-sibling::*[1]/key['ServerAddress']/following-sibling::*[1]"
+  local +r rslvrs
+  rslvrs="$(/usr/bin/xpath "${NPREFS}" "${nodep1}${nodep2}" 2>/dev/null \
+          | /usr/bin/awk '{sub("<array>","" ); sub("</array>","" )
+                           sub("<string>",""); sub("</string>","")
+                                        if ($1 != "") print $1}' )"
+  [[ -z "$rslvrs" ]] && return 10
+  printf "%s\n" "${rslvrs[@]}"
+}
+
+# gets network information using xpath from /Lib/Prefs/SystemConfiguration/preferences.plist
+xpath_parser() {
+  [[ -n "$1" && -n "$2" ]] || { printf "[$red]: $yellow requires 2 parameters\n" "ERROR" "${FUNCNAME}"; return 9 ; }
+  local -r NPREFS="/Library/Preferences/SystemConfiguration/preferences.plist"
+  local -r nodep1="/plist/dict//key[text()='${1}']/following-sibling::*[1]"
+  local -r nodep2="/key[text()='${2}']/following-sibling::*[1]/key[text()='${3}']/following-sibling::*[1]"
+  /usr/bin/xpath "${NPREFS}" "${nodep1}${nodep2}" 2>/dev/null \
+       | /usr/bin/awk '{sub("<array>","" ); sub("</array>","" )
+                        sub("<string>",""); sub("</string>","")
+                        if ($1 != "") print $0}'
+}
+
+# gets and displays network services from /Lib/Pref/SystemConfiguration/preferences (slow)
+display_net_prefs() {
+  fnckr "get_network_services" "get_resolvrs" "xpath_parser" || return $?
+  local +r devnam devtyp net resolv usrnam
+  local -r prfmt="%-37s %-23s %-12s %-9s %-16s\n"
+  if [[ $- = *i* && -n "$PS1" && -z "$1" ]]; then
+    printf "$prfmt" "Network Service Name" "User defined name" "Type" "Device" "DNS"
+    printf "$prfmt" "--------------------" "-----------------" "----" "------" "---"
+  fi
+  for net in $(get_network_services); do
+     usrnam="$(xpath_parser "$net" 'Interface' 'UserDefinedName' )"
+     devnam="$(xpath_parser "$net" 'Interface'      'DeviceName' )"
+     devtyp="$(xpath_parser "$net" 'Interface'            'Type' )"
+     resolv="$(get_resolvrs "$net" | /usr/bin/tr       '\n'  ' ' )"
+     printf "$prfmt" "$net" "$usrnam" "$devtyp" "$devnam" "$resolv"
+  done
+}
+
+# gets packaged files for package $1
+get_pkg_files() {
+  [[ -n "$1" ]] || { printf "[$red]: %s no package name passed\n" "ERROR" "${FUNCNAME}" ; return 3 ; }
+  local +r package="$1" prefix="${BASE_DOM:-com.apple.pkg}"
+  [[ -n "${package##*.*}" && -n "$prefix" ]] && package="${prefix}.${package}"
+  /usr/sbin/pkgutil --files "$package"
+}
+
+# lists packages installed on $1 volume or "/"
+get_pkg_list() { /usr/sbin/pkgutil --pkgs --volume "${1:-/}" ; }
+
+# returns: 0 if package $1 is installed on $2 or "/", otherwise returns 1
+pkg_is_installed() {
+  [[ -n "$1" ]] || { printf "[$red]: %s no package name passed\n" "ERROR" "${FUNCNAME}" ; return 3 ; }
+  local +r line package="$1"
+  while read -r line; do
+    [[ "$line" = "$package" ]] && return 0
+  done <<< "$(/usr/sbin/pkgutil --pkgs --volume "${2:-/}")"
+  return 1
+}
+
+# Checks remaining battery percentages of bluetooth input devices
+check_inputs() {
+  fnckr "check_magic" || return $?
+  check_magic "Keyboard"
+  check_magic "Trackpad"
+}
+
+# checks & reports battery status of bluetooth keyboard or trackpad if < 50%
+check_magic() {
+  local -i battery
+  local +r chargin magicac short str="${1:-Trackpad}"
+  [[ "$1" = "Keyboard" ]] && short="KDB" || short="PAD"
+  magicac="$(/usr/bin/pmset -g accps | /usr/bin/awk -v str="$str" '/^ -Magic/{ if ($2 == str)print }' )"
+  [[ -z "$magicac"     ]] && return
+  chargin="$(/usr/bin/awk -v str="$str" '/; charging/ { if ($2 == str)print }'         <<< "$magicac" )"
+  [[ -n "$chargin"     ]] && return
+  battery="$(/usr/bin/awk -v str="$str" '{sub("%;","");{if ($2 == str)print $(NF-3)}}' <<< "$magicac" \
+           | /usr/bin/tr -dc "[:digit:]" )"
+  [[ -n "$battery"     ]] && {
+    [[ $battery -lt 20 ]] && { printf "[$red]: %s battery level: $red\n"  "$short" "$str" "$battery"  ; return ; }
+    [[ $battery -lt 50 ]] &&  printf "[$blue]: %s battery level: $blue\n" "$short" "$str" "$battery" || return 0
+  }
+}
+
+# checks some always active launchd services
+check_launchd() {
+  local +r lastexit
+  local -a services=( at.obdev.LittleSnitchHelper $@ )
+  for service in "${services[@]}" ; do
+    lastexit="$(/bin/launchctl list "$service" 2>/dev/null | /usr/bin/awk '/LastExitStatus/ {sub(";$","",$NF);print $NF}' )"
+    [[ -n $lastexit    ]] || {
+      lastexit="$(/bin/launchctl print "$service" 2>/dev/null | /usr/bin/awk -F "=" '/last exit code/ {print $2}' )"
+      printf "[$red]: launchd service $yellow not running\n" "LND" "$service"
+      continue
+    }
+    [[ $lastexit -ne 0 ]] && { printf "[$red]: launchd service $yellow last exit status: $blue\n" "WARNING" "$service" "$lastexit" ; }
+    continue
+  done
+}
+
+# secures terminal keyboard entry
+secure_keyboard_entry() {
+  local -i savit
+  local +r curstate
+  local -r preflist="${HOME}/Library/Preferences/com.apple.Terminal"
+  curstate="$( /usr/bin/defaults read "$preflist" SecureKeyboardEntry 2>/dev/null )"
+  [[ "$curstate" -eq 1 ]] && return
+  /usr/bin/defaults write "$preflist" SecureKeyboardEntry -bool true 2>/dev/null
+  savit=$?
+  [[ $savit -ne 0 ]] && {
+    printf "[$red]: $yellow failed to set Terminal Secure Keyboard Entry to true\n" "ERROR" "${FUNCNAME}"
+  } || { printf "[$red]: Terminal Secure Keyboard Entry re-enabled\n" "KBD" ; }
+  return $savit
+}
+
+check_space() {
+  local -i freespace
+  freespace="$(/bin/df -hl / | /usr/bin/tail -n +2 | /usr/bin/awk '{sub("%$","",$5);print (100-$5)}' )"
+  if [[ $freespace -lt 20 ]]; then
+    printf "[$red]: Only $red free space remaining on system volume\n" "SSD" "$freespace%"
+    return "$freespace"
+  fi
+  return 0
+}
+
+# works-in-progress...
+#
+# system_profiler SPSoftwareDataType
+# system_profiler SPPowerDataType
+# system_profiler SPNetworkDataType
+# system_profiler SPMemoryDataType
+# system_profiler SPNetworkLocationDataType
+# system_profiler SPFirewallDataType
+# system_profiler SPEthernetDataType
+# system_profiler SPBluetoothDataType
+# system_profiler SPAirPortDataType
+# system_profiler SPStorageDataType
+#
+# system_profiler SPNetworkDataType|awk '{RS=""} /Hardware: Ethernet/'|awk '/Media Subtype/{print $NF}'
+# awk -F '[ \t]+|/' '$3 == "::1" { next;} $3 ~ /^fe80::/ { next ; } /inet6/ {print $3}'
+# ifconfig -a | egrep -o '([a-f0-9:]+:+)+[a-f0-9]+'| awk -F '[ \t]+|/' '$1 == "::1" { next;} $1 ~ /^fe80::/ { next ; } /:/ {print $1}'
+# ifconfig -a | egrep -o '([a-f0-9:]+:+)+[a-f0-9]+'
+# ifconfig -a | egrep -o '([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})'
+# awk '{if(v)print $1,v;print $1,$2;v=$2}'
+# scutil --nwi|awk '{RS=""} /address/ {printf("Device: %-8s address: %-17s\n",$5,$13)}'
+# launchctl list|grep -v com.apple|awk 'BEGIN {FIELDWIDTHS = "8 8 *"} {if ($1 != "PID") printf("%-8s%-8s%s\n",$1,$2,$3)}'
+# launchctl list|grep -v com.apple|awk 'BEGIN {FIELDWIDTHS = "8 8 *"} $1 !~ /(^PID|^-)/ {printf("%-8s%-8s%s\n",$1,$2,$3)}'
+# launchctl list|awk 'BEGIN {FIELDWIDTHS = "8 8 *"} {if ($1 != "PID") if (($1 != "-") && ($2 != "0")) printf("%-8s%-8s%s\n",$1,$2,$3)}'
+# networksetup -listallhardwareports |awk -F: '{RS=""} /Ethernet Address/ {printf("%-20s %-8s %s:%s:%s:%s:%s:%s\n",$2,$4,$6,$7,$8,$9,$10,$11)}'
+# networksetup -listallhardwareports | grep -F "Device: en" -B 1 | grep -F "Hardware Port:" |sed 's/Hardware Port: //g'
+#
+# regex='^([0-9a-fA-F]{0,4}:){1,7}[0-9a-fA-F]{0,4}$'
+# IPv6 regex...
+# (\A([0-9a-f]{1,4}:){1,1}(:[0-9a-f]{1,4}){1,6}\Z)|
+# (\A([0-9a-f]{1,4}:){1,2}(:[0-9a-f]{1,4}){1,5}\Z)|
+# (\A([0-9a-f]{1,4}:){1,3}(:[0-9a-f]{1,4}){1,4}\Z)|
+# (\A([0-9a-f]{1,4}:){1,4}(:[0-9a-f]{1,4}){1,3}\Z)|
+# (\A([0-9a-f]{1,4}:){1,5}(:[0-9a-f]{1,4}){1,2}\Z)|
+# (\A([0-9a-f]{1,4}:){1,6}(:[0-9a-f]{1,4}){1,1}\Z)|
+# (\A(([0-9a-f]{1,4}:){1,7}|:):\Z)|
+# (\A:(:[0-9a-f]{1,4}){1,7}\Z)|
+# (\A((([0-9a-f]{1,4}:){6})(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3})\Z)|
+# (\A(([0-9a-f]{1,4}:){5}[0-9a-f]{1,4}:(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3})\Z)|
+# (\A([0-9a-f]{1,4}:){5}:[0-9a-f]{1,4}:(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}\Z)|
+# (\A([0-9a-f]{1,4}:){1,1}(:[0-9a-f]{1,4}){1,4}:(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}\Z)|
+# (\A([0-9a-f]{1,4}:){1,2}(:[0-9a-f]{1,4}){1,3}:(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}\Z)|
+# (\A([0-9a-f]{1,4}:){1,3}(:[0-9a-f]{1,4}){1,2}:(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}\Z)|
+# (\A([0-9a-f]{1,4}:){1,4}(:[0-9a-f]{1,4}){1,1}:(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}\Z)|
+# (\A(([0-9a-f]{1,4}:){1,5}|:):(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}\Z)|
+# (\A:(:[0-9a-f]{1,4}){1,5}:(25[0-5]|2[0-4]\d|[0-1]?\d?\d)(\.(25[0-5]|2[0-4]\d|[0-1]?\d?\d)){3}\Z)
+#
+# sqlite3 ~/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2 'select LSQuarantineDataURLString from LSQuarantineEvent'
+# sqlite3 ~/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2 'select DISTINCT LSQuarantineDataURLString from LSQuarantineEvent'
+# sqlite3 ~/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2 'delete from LSQuarantineEvent where LSQuarantineEventIdentifier like "%%";'
+# sqlite3 ~/Library/Preferences/com.apple.LaunchServices.QuarantineEventsV2 'vacuum LSQuarantineEvent'
+#

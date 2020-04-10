@@ -1,0 +1,27 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"editor.folding": false,
+		"editor.minimap.enabled": false,
+		"editor.renderIndentGuides": true,
+		"editor.smoothScrolling": true,
+		"files.associations": {
+			"**/editorconfig": "properties",
+			"**/gitignore_global": "properties",
+			"**/inputrc": "properties",
+			"**/prettierignore": "properties",
+			"**/prettierrc": "properties",
+			"**/screenrc": "properties",
+			"**/login_*": "shellscript",
+			"**/bash_*": "shellscript",
+			"**/bashrc": "shellscript",
+			"**/npmrc": "shellscript",
+			"**/func_*": "shellscript"
+		},
+		"editor.tabSize": 2
+	}
+}

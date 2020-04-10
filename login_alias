@@ -1,0 +1,94 @@
+# $DOTFILES/login_alias by :nudge>
+
+unset alias history             || exit $?
+# return if not interactive
+[[ "$MY_TTYS" != "not a tty" ]] || return 0
+[[  $- = *i*  ||  -n  "$PS1" ]] || return 0
+[[  -z "$VSCODE_PID"         ]] || return 0
+
+alias     addtile='/usr/bin/defaults write com.apple.dock persistent-apps -array-add "{"tile-type"="spacer-tile";}" && /usr/bin/killall Dock'
+alias     alig="alias | /usr/bin/grep"
+alias     asset="/usr/bin/AssetCacheManagerUtil"
+alias     assetlog="/usr/bin/log show --last 3d --predicate 'subsystem == \"com.apple.AssetCache\"'"
+alias     assets="/usr/bin/AssetCacheManagerUtil status"
+alias     brctllog="/usr/bin/log show --last 3d --predicate 'subsystem == \"com.apple.clouddocs\"'"
+alias     chkKDC="/usr/bin/sudo /usr/libexec/checkLocalKDC"
+alias     cnfKDC="/usr/bin/sudo /usr/libexec/configureLocalKDC"
+alias     code="/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code"
+alias     cp="/usr/bin/nice /bin/cp -v"
+alias     darleks="/usr/bin/find ~ -type f -name .DS_Store -delete"
+alias     dfhl="/bin/df -hl"
+alias     dispclrs='/usr/bin/env bash $DOTFILES/displaycolors.sh'
+alias     dnssdb="/usr/bin/dns-sd -B _services._dns-sd._udp"
+alias     efichk="/usr/libexec/firmwarecheckers/eficheck/eficheck --integrity-check"
+alias     evict="/usr/bin/brctl evict"
+alias     evictall="/usr/bin/brctl evict **/*/*"
+alias     gita="/usr/local/bin/git add ."
+alias     gitc="/usr/local/bin/git commit -m"
+alias     gitd="/usr/local/bin/git diff"
+alias     gitl="/usr/local/bin/git log"
+alias     gitp="/usr/local/bin/git push"
+alias     gits="/usr/local/bin/git status"
+alias     hg="history|/usr/bin/grep"
+alias     hitail="history|/usr/bin/tail -n 20"
+alias     lctl="/bin/launchctl list | /usr/bin/grep -v com.apple && /usr/bin/sudo /bin/launchctl list | /usr/bin/grep -v com.apple"
+alias     lock="/usr/sbin/diskutil apfs lockVolume"
+alias     London='/usr/local/opt/curl/bin/curl --connect-timeout 2 -m 3 --dns-ipv4-addr $LDNS --http2 wttr.in/London?m'
+alias     lsa="/bin/ls -ThealAO"
+alias     lsal="/bin/ls -al"
+alias     lsal.="/bin/ls -al .."
+alias     lsl="/bin/ls -l"
+alias     lsla='/bin/ls -al /Library/LaunchAgents/ /Library/LaunchDaemons/ $HOME/Library/LaunchAgents/'
+alias     lsofi="/usr/sbin/lsof -i -nP"
+alias     lsofis="/usr/bin/sudo /usr/sbin/lsof -i -nP"
+alias     lxa="/usr/local/bin/exa --colour-scale -agl"
+alias     lxc="/usr/local/bin/exa --colour-scale -aglH"
+alias     lxf="/usr/local/bin/exa --colour-scale --git --git-ignore -agl@"
+alias     lxg="/usr/local/bin/exa --colour-scale --git --git-ignore --grid -agl"
+alias     lxi="/usr/local/bin/exa --colour-scale --git --git-ignore -agl"
+alias     lxs="/usr/local/bin/exa --colour-scale --git -agl"
+alias     lxt='/usr/local/bin/exa --colour-scale -I ${EXA_IGNORE} -aglTL'
+alias     makepwd='LC_ALL=C /usr/bin/tr -dc "[:alpha:][:alnum:]" < /dev/urandom | /usr/bin/head -c 32 | /usr/bin/pbcopy'
+alias     mdnsdg="/usr/bin/dig @224.0.0.251 +time=1 -p 5353 -t"
+alias     mkdir="/bin/mkdir -pv"
+alias     Moon='/usr/local/opt/curl/bin/curl --connect-timeout 2 -m 3 --dns-ipv4-addr $LDNS --http2 wttr.in/Moon'
+alias     mv="/usr/bin/nice mv -v"
+alias     myrecip="/usr/bin/dig o-o.myaddr.l.google.com -t txt +short"
+alias     mysshd="/usr/local/sbin/sshd -4De -f /usr/local/etc/ssh/sshd_config -h /usr/local/etc/ssh/ssh_host_ed25519_key"
+alias     npmlsg="npm ls -g --depth=0"
+alias     Paris='/usr/local/opt/curl/bin/curl --connect-timeout 2 -m 3 --dns-ipv4-addr $LDNS --http2 wttr.in/Paris?m'
+alias     psg="/bin/ps auxwww | /usr/bin/grep"
+alias     qnmint="/usr/bin/dig qnamemintest.internet.nl TXT +short"
+alias     ramps="/bin/ps wwaxm -o pid,stat,vsize,rss,time,command | /usr/bin/head -10"
+alias     ramtp="/usr/bin/top -l 1 -o rsize -ncols 29 | /usr/bin/head -20"
+alias     recit="/usr/bin/find /Applications -path '*Contents/_MASReceipt/receipt' -maxdepth 4 -print | /usr/bin/sed 's#.app/Contents/_MASReceipt/receipt#.app#g; s#/Applications/##'"
+alias     sharelog="/usr/bin/log show --predicate 'subsystem == \"com.apple.shared\"'"
+alias     smbdns="/usr/bin/dig @224.0.0.251 -p 5353 -t ptr _smb._tcp.local"
+alias     smblog="/usr/bin/log show --last 3d --predicate 'subsystem == \"com.apple.smbd\"'"
+alias     smbstp="/usr/bin/sudo /bin/launchctl unload -w /System/Library/LaunchDaemons/com.apple.smbd.plist"
+alias     smbsup="/usr/bin/sudo /bin/launchctl load -w /System/Library/LaunchDaemons/com.apple.smbd.plist"
+alias     sockfw="/usr/bin/sudo /usr/libexec/ApplicationFirewall/socketfilterfw"
+alias     sshadd="/usr/bin/ssh-add"
+alias     swupdh="/usr/sbin/softwareupdate --history --all --verbose | /usr/bin/more"
+alias     swupdi="/usr/sbin/softwareupdate --install --all --include-config-data"
+alias     swupdl="/usr/sbin/softwareupdate --list --all --include-config-data"
+alias     systyp='printf "$yellow\n" "$SYSTYPE"'
+alias     t30="/usr/bin/tail -n 30"
+alias     tailsys="/usr/bin/tail -n 3000 -f /var/log/system.log"
+alias     termr="/usr/bin/tput rmcup"
+alias     terms="/usr/bin/tput smcup"
+alias     termt="/usr/bin/tput sgr0"
+alias     tidyup="/usr/local/bin/git add . && /usr/local/bin/git commit -m TidyUp && /usr/local/bin/git push"
+alias     tmdell="/usr/bin/tmutil deletelocalsnapshots" # <space> date string
+alias     tmlist="/usr/bin/tmutil listlocalsnapshots /"
+alias     unlock="/usr/sbin/diskutil apfs unlockVolume"
+alias     usenvm='source $NVM_DIR/nvm.sh && source $NVM_DIR/bash_completion'
+alias     usedno='source $HOME/.deno/bin/usedno.sh'
+alias     wtf='/bin/echo $?'
+alias     xla="/usr/local/bin/exa --colour-scale -agl"
+alias     xlc="/usr/local/bin/exa --colour-scale -aglH"
+alias     xlf="/usr/local/bin/exa --colour-scale --git --git-ignore -agl@"
+alias     xlg="/usr/local/bin/exa --colour-scale --git --git-ignore --grid -agl"
+alias     xli="/usr/local/bin/exa --colour-scale --git --git-ignore -agl"
+alias     xls="/usr/local/bin/exa --colour-scale --git -agl"
+alias     xlt='/usr/local/bin/exa --colour-scale -I ${EXA_IGNORE} -aglTL'

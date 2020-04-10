@@ -1,0 +1,22 @@
+# "\e[3;3~": kill-word
+“\e[5~”: history-search-backward
+“\e[6~”: history-search-forward
+set expand-tilde off
+set completion-ignore-case on
+set mark-symlinked-directories on
+set match-hidden-files off
+set page-completions off
+set completion-query-items 250
+set visible-stats on
+set skip-completed-text on
+# set input-meta on
+# set output-meta on
+# set convert-meta off
+
+# mappings for Ctrl-left-arrow and Ctrl-right-arrow for word moving
+#"\e[1;5C": forward-word
+#"\e[1;5D": backward-word
+#"\e[5C": forward-word
+#"\e[5D": backward-word
+#"\e\e[C": forward-word
+#"\e\e[D": backward-word

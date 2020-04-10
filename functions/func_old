@@ -1,0 +1,58 @@
+
+# pip shouldn't run unless a virtualenv is activated
+gpip() {
+  export PIP_REQUIRE_VIRTUALENV="" pip "${@?}"
+}
+
+# Note that unfortunately not all sound cards allow volume changes
+# Sets volume level (echos current volume level before changing it)
+volume() {
+  /usr/bin/osascript -e 'output volume of (get volume settings)'
+  /usr/bin/osascript -e "set volume output volume ${1}"
+}
+
+# Sets system mute status (echos current mute state before changing it)
+mute() {
+  local -r mutest=$(/usr/bin/osascript -e 'get output volume of (get volume settings)')
+  /bin/echo "$mutest"
+  [[ $mutest != "$1" ]] && /usr/bin/osascript -e "set volume output muted $1"
+}
+
+# returns 0 if $USER is member of group $1 (or the admin group)
+ismember() {
+  if [[ "$(/usr/bin/dsmemberutil checkmembership -U "$USER" -G "${1:-admin}" 2>/dev/null \
+         | /usr/bin/grep -F -c "user is a member of the group" )" -eq 1 ]]; then
+    return 0
+  else
+    return 1
+  fi
+}
+
+# finds a file by it's name
+fff() {
+  /usr/bin/find . -type f -iname '*'"$*"'*' -ls
+}
+
+# Speak up even when the volume is down
+hearthis() {
+  local +r oldmute
+  local +r oldvol
+  local -r dn="/dev/null"
+  [[ -z "$SYVOICE"  ]]    && local -r SYVOICE="Oliver"
+  declare -F check_my_functions &>$dn || { printf "[ERROR]: missing function checker\n" ; return 94 ; }
+  check_my_functions "mute" "volume"  || return $?
+  oldmute=$(mute false)
+  oldvol=$( volume 50 )
+  /usr/bin/say -r 20 -v $SYVOICE " "  && \
+  /usr/bin/say -r 20 -v $SYVOICE "${1:-knock,knock}"
+  volume $oldvol  >$dn
+  mute   $oldmute >$dn
+}
+
+# Stops photostuff for a while
+kill_photod() {
+  /bin/launchctl disable    gui/$UID/com.apple.photoanalysisd && \
+  /bin/launchctl kill -TERM gui/$UID/com.apple.photoanalysisd
+  /bin/launchctl disable    gui/$UID/com.apple.photolibraryd  && \
+  /bin/launchctl kill -TERM gui/$UID/com.apple.photolibraryd
+}

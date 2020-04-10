@@ -1,0 +1,21 @@
+# $DOTFILES/login_path
+
+# Golang
+export    GOPATH="${HOME}/Dev/Bin/Go"
+/usr/bin/grep -Fc "$GOPATH/bin" <<< "$PATH" >/dev/null   || {
+  [[ -d "${GOPATH}/bin"    ]] && PATH=$PATH:$GOPATH/bin   ; }
+# Homebrew
+/usr/bin/grep -Fc "usr/local/bin" <<< "$PATH" >/dev/null || {
+  [[ -d "/usr/local/bin" ]] && PATH=/usr/local/bin:$PATH  ; }
+# Openssl
+/usr/bin/grep -Fc "usr/local/opt/openssl/bin" <<< "$PATH" &>/dev/null || {
+  [[ -d "/usr/local/opt/openssl/bin" ]] && PATH=/usr/local/opt/openssl/bin:$PATH ; }
+
+# return if not interactive
+[[ $- != *i*  || -z "$PS1"  ]] && return 0
+
+export    DONUTS="${GOPATH}/src/github.com/inudge"
+export    SHPATH="${HOME}/Dev/Code/Bash/misc"
+export    FNPATH="${DOTFILES}/functions"
+export    MMPATH="/usr/local/etc/madmen"
+export    SOPATH="/Users/Shared/Software"

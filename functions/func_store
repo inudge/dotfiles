@@ -1,0 +1,32 @@
+
+# enable ssh-agent for ssh sessions (is broken)
+# [[ -z "$SSH_TTY"       ]] && return # return if ! SSH session
+# [[ -z "$SSH_AUTH_SOCK" ]] && LSRESLT="$(/bin/ls /private/tmp/com.apple.launchd.*/Listeners 2>/dev/null)"
+# [[ -z "$LSRESLT"       ]] || SSH_AUTH_SOCK="$LSRESLT"
+# export TERM_SESSION_ID=$(uuidgen)
+# export SHELL_SESSION_DID_INIT=
+# export TERM_PROGRAM="Apple_Terminal"
+# [[ -r "/etc/bashrc_Apple_Terminal" ]] && source /etc/bashrc_Apple_Terminal
+
+# setup_airport_cmd() {
+#   local -r cmtest="$(/usr/bin/command -v airport)"
+#   local -r source="/System/Library/PrivateFrameworks/Apple80211.framework/Versions/Current/Resources/airport"
+#   local -r target="/usr/local/bin/airport"
+#   local -r dn="/dev/null"
+#   local -i savit
+#   if [[ "$cmtest" != "$target" ]]; then
+#     /bin/ln -s "$source" "$target" &>$dn || \
+#       { savit=$? ; printf "[ERROR]: unable to symlink airport command: %d\n" $savit ; return $savit ; }
+#   fi
+#   [[ "$(/usr/bin/command -v airport)" = "$target" ]] && return 0
+#   (( savit++ )) ; return $savit
+# }
+
+# symair() {
+#   local -i savit=0
+#   declare -F check_my_functions &>/dev/null || { printf "[ERROR]: missing function checker\n" ; return 94 ; }
+#   check_my_functions "setup_airport_cmd"    || return $?
+#   setup_airport_cmd                         || \
+#     { savit=$? ; printf "[ERROR]: unable to symlink airport command\n"  ; return $savit ; }
+# }
+

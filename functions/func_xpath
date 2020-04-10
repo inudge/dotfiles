@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# func_xpath by :nudge>
+#
+# This would be very nice, if it wasnt so damned slow !:/
+#
+get_network_services() {
+  local -r NETWKSERVICES="/plist/dict/key[contains(text(), 'NetworkServices')]/following-sibling::*[1]/key"
+  /usr/bin/xpath "${PREFS}" "${NETWKSERVICES}"   2>/dev/null  \
+       | /usr/bin/awk '{gsub("<key>","");gsub("</key>","\n");print}'
+}
+
+get_resolvrs() {
+  local -r nodep1="/plist/dict//key[text()='${1}']/following-sibling::*[1]"
+  local -r nodep2="/key[text()='DNS']/following-sibling::*[1]/key['ServerAddress']/following-sibling::*[1]"
+  /usr/bin/xpath "${PREFS}" "${nodep1}${nodep2}" 2>/dev/null  \
+       | /usr/bin/awk '{sub("<array>","" ); sub("</array>","" )
+                        sub("<string>",""); sub("</string>","")
+                        if ($1 != "") print $1}'
+}
+
+xpath_parser() {
+  local -r nodep1="/plist/dict//key[text()='${1}']/following-sibling::*[1]"
+  local -r nodep2="/key[text()='${2}']/following-sibling::*[1]/key[text()='${3}']/following-sibling::*[1]"
+  /usr/bin/xpath "${PREFS}" "${nodep1}${nodep2}" 2>/dev/null  \
+       | /usr/bin/awk '{sub("<array>","" ); sub("</array>","" )
+                        sub("<string>",""); sub("</string>","")
+                        if ($1 != "") print $0}'
+}
+
+main() {
+  local -r PREFS="/Library/Preferences/SystemConfiguration/preferences.plist"
+  local +r device devtyp net resolv usrdev
+  local +a networks
+  read -r -d '' -a networks <<< $(get_network_services)
+  for net in "${networks[@]}"; do
+    usrdev="$(xpath_parser $net 'Interface' 'UserDefinedName' )"
+    device="$(xpath_parser $net 'Interface'      'DeviceName' )"
+    devtyp="$(xpath_parser $net 'Interface'            'Type' )"
+    resolv="$(get_resolvrs $net | /usr/bin/tr '\n'        ' ' )"
+    printf "%-37s %-23s type: %-12s device: %-9s DNS: %-16s\n" \
+           "$net" "$usrdev"  "$devtyp"     "$device"   "$resolv"
+  done
+}
+
+#–––––––––––––––––––––––––––––––––––––––––––∆
+[[ ${BASH_SOURCE[0]} = "$0" ]] && main "$@" #
+#–––––––––––––––––––––––––––––––––––––––––––Ω
+exit

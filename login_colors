@@ -1,0 +1,29 @@
+# $DOTFILES/login_colors by :nudge>
+
+[[ "$MY_TTYS" != "not a tty" ]] || return 0
+[[  $- = *i*  ||  -n  "$PS1" ]] || return 0
+[[  -z "$VSCODE_PID"         ]] || return 0
+
+export    red="\e[1;31m%s\e[0m"
+export    cyan="\e[1;36m%s\e[0m"
+export    blue="\e[1;34m%s\e[0m"
+export    green="\e[1;32m%s\e[0m"
+export    yellow="\e[1;33m%s\e[0m"
+export    magenta="\e[1;35m%s\e[0m"
+export    rkteer="\xf0\x9f\x9a\x80"
+export    saint="\xf0\x9f\x98\x87"
+export    CLICOLOR=true
+#export   LSCOLORS="exfxcxdxbxegedabagacad"                  # the default ls colors
+export    LSCOLORS="HxBxabcbFxxeFdbgbgEaFx"                  # ls colors for dark bg
+export    EXA_COLORS="da=35:ga=31:gm=31:gd=31:gv=31:gt=31:gg=31:gm=31:uu=1;34:gu=34:ex=1;31:di=1;37:fi=1;36"
+export    EXA_IGNORE="bash_sessions|cache|.git|log|logs|node_modules"
+export    JQ_COLORS="1;30:0;39:0;39:0;39:0;32:1;39:1;39"     # the default jq colors
+#      ^ color for   null     true      strings   objects
+#                        false     numbers   arrays
+# emojis that don't cause issues when included in command line prompts...
+export    mojios=( 🚀 💥 😇 🚂 🎹 🐹 🐰 🐸 🐯 🐵 🐼 🐧 🐠 🐳 🐬 🐙 🐥 😍 😳 👻 👺 🤖 🐶 🐱 🐭\
+                   👽 💩 🙏 💋 👶 🐍 🐢 🦄 🌺 🍷 🍺 👼️ 🐨 🐻 🐷 🐮 ⚽️ 👾 🚑 🚒 💾 📱 💜 💟 🌀\
+                   😅 😘 😎 🤑 🤗 😴 🤐 😻 👲 🎅 🍒 💃 👯 🐓 🍀 🌞 🍝 🎂 🍾 🎲 🚇 🚧 🌇 🌠 🗽\
+                   🧁 ⏰ ⌛️ 💣 💈 💌 🔞 📢 🔀 🔂 💒 💞 💘 🥡 📸 🥥 ⛵️ 🚤 🚖 🚔 🚍 🚆 🚁 🚌 🍦\
+                   🥗 🥤 🎅 🥭 🧤 👑 👠 💫 🥏 🎱 🥕 🥐 🍋 🧀 🚛 🍣 🆒 🍑 🍎 🦠 🧲 🧬 🎪 🎰 🤩)
+export    mojie='$(/bin/echo ${mojios[$RANDOM % ${#mojios[@]}]})' # gets included in my prompt
